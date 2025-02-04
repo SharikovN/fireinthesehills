@@ -1,0 +1,93 @@
+   sudo apt update
+   sudo apt install bind9
+   
+#/etc/bind/named.conf.local:
+   zone "rea25.ru" {
+       type master;
+       file "/etc/bind/db.rea25.ru";
+   };
+   
+Создайте файл зоны /etc/bind/db.rea25.ru добавьте записи из Приложения 1.
+
+#/etc/bind/named.conf.options:
+   options {
+       directory "/var/cache/bind";
+       forwarders {
+           <ISP-DNS-IP>;  # Укажите IP адрес DNS сервера ISP
+       };
+       // Остальная конфигурация...
+   };
+      sudo systemctl restart bind9
+   
+
+### Настройка подчиненного DNS сервера на BR-SRV1
+
+1. Настройте подчиненную зону в /etc/bind/named.conf.local:
+   
+   zone "rea25.ru" {
+       type slave;
+       file "/var/cache/bind/db.rea25.ru";
+       masters { <CR-SRV-IP>; };  # Укажите IP адрес CR-SRV
+   };
+
+## Настройка межсетевого экрана с использованием nftables
+
+1. Установите nftables:
+   
+   sudo apt update
+   sudo apt install nftables
+   
+
+2. Создайте файл конфигурации /etc/nftables.conf и настройте правила:
+   
+   flush ruleset
+
+   table inet filter {
+       chain input {
+           type filter hook input priority 0;
+
+           # Разрешаем установленные соединения и трафик с localhost
+           ct state established,related accept
+           iif lo accept
+
+           # Запрещаем ICMP трафик извне
+           ip saddr != { <INTERNAL-NETWORK-RANGES> } icmp reject
+
+           # Разрешаем ICMP трафик из внутренних сетей
+           ip saddr { <INTERNAL-NETWORK-RANGES> } icmp accept
+
+           # Разрешаем SSH доступ к CR-SRV из внешних сетей на порт, переадресованный на 2222
+           tcp dport 2222 accept
+
+           # Запрещаем весь трафик по умолчанию
+           drop
+       }
+
+       chain forward {
+           type filter hook forward priority 0;
+           
+           # Разрешаем трафик в интернет
+           accept
+
+           # Запрещаем трафик по умолчанию
+           drop
+       }
+   }
+   
+
+3. Перезапустите nftables:
+   
+   sudo systemctl restart nftables
+   
+
+### Настройка беспарольной аутентификации SSH с OUT-CLI на CR-SRV
+
+1. На OUT-CLI сгенерируйте SSH ключи, если еще не созданы:
+   
+   ssh-keygen -t rsa
+   
+
+2. Передайте публичный ключ на CR-SRV:
+   
+   ssh-copy-id -p 2222 administrator@<CR-RTR-IP>
+   
