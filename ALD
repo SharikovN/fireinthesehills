@@ -1,0 +1,48 @@
+sudo systemctl stop NetworkManager
+sudo systemctl disable NetworkManager
+sudo systemctl mask NetworkManager
+#В /etc/apt/sources.list добавить репозитории astra и отдельно ald pro
+#Файл hosts должен иметь формат:
+#127.0.0.1 localhost.localdomain localhost
+#<'IP CR-SRV'> <'Full FQDN'> <'Short FQDN'>
+sudo apt dist-upgrade -y -o Dpkg::Options::=--force-confnew
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -q -y aldpro-mp aldpro-gc aldpro-syncer
+sudo aldpro-server-install -d домен -n имя -p 'пароль' --ip айпи --no-reboot --setup_syncer --setup_gc  #Если не встанет, то попробовать ещё 
+
+
+Для добавления тачек в домен:
+(Даже при добавлении модуля, сначала скачиваем это, а потом в веб морде добавляем
+куда нужно, он сам потом догружает что нужно, как в zvirt ноду добавлять)
+Выключить NetworkManager
+Настроить файл /etc/network/interfaces
+Проработка заданий
+1. Миграция пользователей с MS AD:
+search доменная зона в /etc/resolve.conf
+Добавить репозитории в файл /etc/apt/sources.list
+Добавить репозитории ALD Pro в файл /etc/apt/sources.list.d/aldpro.list
+Запись в /etc/hosts: "127.0.0.1 localhost localhost.localdomain"
+Проверить пакеты и выполнить изменения командой: sudo apt dist-upgrade -y -o
+Dpkg::Options::=--force-confnew
+Установить ALD Pro клиент командой:
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q aldpro-client
+Ввести машину в домен: sudo /opt/rbta/aldpro/client/bin/aldpro-client-installer --domain
+домен --account admin --password 'пароль' --host "имя хоста" --gui --force
+Настройка ALD Pro
+Добавление зоны перенаправления можно сделать из графического интерфейса
+«Роли и службы сайта Служба разрешения имен Перенаправление запросов».
+1. Имя зоны = имя домена MS AD
+2. Глобальные перенаправители = IP-адрес контроллера домена MS AD, с
+которым устанавливаются доверительные отношения
+3. Остальные поля и параметры оставить без изменений После на каждом
+контроллере домена необходимо выполнить команды:
+sudo net conf setparm global "restrict anonymous" "0" sudo aldproctl restart
+-i
+Настройка MS AD
+Настройка контроллера домена MS AD осуществляется согласно официальным
+инструкциям к MS AD. (Пуск -> Оснастка “DNS”):
+4. Контекстное меню к “Серверы условной пересылки” -> Создать сервер условной
+пересылки.
+5. В поле “DNS-домен” ввести имя домена ALD Pro.
+6. Добавить IP-адрес контроллера домена ALD Pro в блоке “IP-адреса основных
+серверов
+В веб-морде настроить доверительные отношения с AD
